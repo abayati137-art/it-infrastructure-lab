@@ -6,4 +6,6 @@ services:
       - "8080:80"
     volumes:
       - ./web:/usr/local/apache2/htdocs:ro
+      - ./config/servername.conf:/usr/local/apache2/conf/extra/servername.conf:ro
+    command: ["httpd-foreground", "-c", "Include conf/extra/servername.conf"]
     restart: unless-stopped
