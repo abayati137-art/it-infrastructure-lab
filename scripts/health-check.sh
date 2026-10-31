@@ -1,35 +1,53 @@
+
 #!/bin/bash
 
-LOG_FILE="logs/health-check.log"
+LOG_FILE="/home/a/it-infrastructure-lab/logs/health-check.log"
 
-mkdir -p logs
+mkdir -p "$(dirname "$LOG_FILE")"
 
-echo "================================" | tee -a "$LOG_FILE"
-echo " IT Infrastructure Health Check" | tee -a "$LOG_FILE"
-echo "================================" | tee -a "$LOG_FILE"
+{
+    echo "================================"
+    echo " IT Infrastructure Health Check"
+    echo "================================"
+    echo "Date: $(date)"
+    echo
 
-echo "Date: $(date)" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
+    echo "Checking Docker container..."
+    if docker inspect -f '{{.State.Running}}' lab-web 2>/dev/null | grep -q true; then
+        echo "STATUS: Container is RUNNING"
+    else
+        echo "WARNING: Container is NOT running"
+    fi
 
-echo "Checking Docker container..." | tee -a "$LOG_FILE"
+    echo
+    echo "Checking HTTP service..."
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8080)
 
-if docker inspect -f '{{.State.Running}}' lab-web 2>/dev/null | grep -q true; then
-    echo "STATUS: Container is RUNNING" | tee -a "$LOG_FILE"
-else
-    echo "WARNING: Container is NOT running" | tee -a "$LOG_FILE"
-fi
+    if [ "$HTTP_STATUS" = "200" ]; then
+        echo "STATUS: Apache HTTP is HEALTHY (HTTP $HTTP_STATUS)"
+    else
+        echo "WARNING: Apache HTTP is NOT responding (HTTP $HTTP_STATUS)"
+    fi
 
-echo "" | tee -a "$LOG_FILE"
-echo "Checking HTTP service..." | tee -a "$LOG_FILE"
+    echo
+    echo "===== SYSTEM RESOURCE MONITORING ====="
 
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8080)
+    echo "CPU Load Average (1, 5, 15 min):"
+    awk '{print $1, $2, $3}' /proc/loadavg
 
-if [ "$HTTP_STATUS" = "200" ]; then
-    echo "STATUS: Apache HTTP is HEALTHY (HTTP $HTTP_STATUS)" | tee -a "$LOG_FILE"
-else
-    echo "WARNING: Apache HTTP is NOT responding (HTTP $HTTP_STATUS)" | tee -a "$LOG_FILE"
-fi
+    echo
+    echo "Memory Usage:"
+    free -h
 
-echo "" | tee -a "$LOG_FILE"
-echo "Health check completed." | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
+    echo
+    echo "Disk Usage:"
+    df -h /
+
+    echo
+    echo "System Uptime:"
+    uptime -p
+
+    echo
+    echo "Health check completed."
+    echo
+} | tee -a "$LOG_FILE"
